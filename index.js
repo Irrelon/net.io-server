@@ -1,9 +1,9 @@
 // Our namespace
-var NetIo = function () {};
+var NetIo = {};
 
 // Inspired by base2 and Prototype
 // Modified for the Isogenic Game Engine
-NetIo.prototype.Class = (function () {
+NetIo.Class = (function () {
 	var initializing = false,
 		fnTest = /xyz/.test(function () {xyz;}) ? /\b_super\b/ : /.*/,
 
@@ -235,7 +235,7 @@ NetIo.prototype.Class = (function () {
 	return Class;
 }());
 
-NetIo.prototype.EventingClass = NetIo.prototype.Class.extend({
+NetIo.EventingClass = NetIo.Class.extend({
 	/**
 	 * Add an event listener method for an event.
 	 * @param {String || Array} eventName The name of the event to listen for (string), or an array of events to listen for.
@@ -425,7 +425,7 @@ NetIo.prototype.EventingClass = NetIo.prototype.Class.extend({
 	}
 });
 
-NetIo.prototype.Socket = NetIo.prototype.EventingClass.extend({
+NetIo.Socket = NetIo.EventingClass.extend({
 	init: function (connection) {
 		var self = this;
 		this._socket = connection;
@@ -458,13 +458,18 @@ NetIo.prototype.Socket = NetIo.prototype.EventingClass.extend({
 	}
 });
 
-NetIo.prototype.Server = NetIo.prototype.EventingClass.extend({
-	init: function () {
+NetIo.Server = NetIo.EventingClass.extend({
+	init: function (port, callback) {
+		this._port = port;
 		this._websocket = require('websocket');
 		this._http = require('http');
+
+		this.start(callback);
 	},
 
 	start: function (callback) {
+		var self = this;
+
 		this._httpServer = this._http.createServer(function(request, response) {
 			response.writeHead(404);
 			response.end();
