@@ -453,7 +453,7 @@ NetIo.Socket = NetIo.EventingClass.extend({
 		this._socket = connection;
 		this._socket.on('message', function(message) {
 			if (message.type === 'utf8') {
-				self.emit('message', self._decode(message.utf8Data));
+				self.emit('message', [self._decode(message.utf8Data)]);
 				//socket.sendUTF(message.utf8Data);
 			} else if (message.type === 'binary') {
 				console.log('Binary data received, no support yet!');
@@ -507,18 +507,20 @@ NetIo.Server = NetIo.EventingClass.extend({
 	init: function (port, callback) {
 		this._idCounter = 0;
 
-		this._port = port;
 		this._websocket = require('websocket');
 		this._http = require('http');
 
 		this._sockets = [];
 		this._socketsById = {};
 
-		this.start(callback);
+		if (port !== undefined) {
+			this.start(port, callback);
+		}
 	},
 
-	start: function (callback) {
-		var self = this;
+	start: function (port, callback) {
+		var self = this
+		this._port = port;
 
 		this._httpServer = this._http.createServer(function(request, response) {
 			response.writeHead(404);
