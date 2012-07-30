@@ -470,10 +470,27 @@ NetIo.Socket = NetIo.EventingClass.extend({
 		});
 	},
 
+	/**
+	 * Encodes the passed JSON data and sends it.
+	 * @param data
+	 */
 	send: function (data) {
 		this._socket.sendUTF(this._encode(data));
 	},
 
+	/**
+	 * Sends pre-encoded data without encoding it.
+	 * @param data
+	 * @private
+	 */
+	_send: function (data) {
+		this._socket.sendUTF(data);
+	},
+
+	/**
+	 * Closes the socket.
+	 * @param reason
+	 */
 	close: function (reason) {
 		this.send({
 			_netioCmd: 'close',
@@ -481,14 +498,6 @@ NetIo.Socket = NetIo.EventingClass.extend({
 		});
 
 		this._socket.close(reason);
-	},
-
-	_encode: function (data) {
-		return JSON.stringify(data);
-	},
-
-	_decode: function (data) {
-		return JSON.parse(data);
 	}
 });
 
@@ -501,6 +510,9 @@ NetIo.Server = NetIo.EventingClass.extend({
 		this._port = port;
 		this._websocket = require('websocket');
 		this._http = require('http');
+
+		this._sockets = [];
+		this._socketsById = {};
 
 		this.start(callback);
 	},
@@ -537,8 +549,28 @@ NetIo.Server = NetIo.EventingClass.extend({
 			var connection = request.accept('netio1', request.origin),
 				socket = new NetIo.Socket(connection);
 
+			// Give the socket encode/decode methods
+			socket._encode = self._encode;
+			socket._decode = self._decode;
+
 			// Give the socket a unique ID
 			socket.id = self.newIdHex();
+
+			// Add the socket to the internal lookups
+			self._sockets.push(socket);
+			self._socketsById[socket.id] = socket;
+
+			// Register a listener so that if the socket disconnects,
+			// we can remove it from the active socket lookups
+			socket.on('disconnect', function () {
+				var index = self._sockets.indexOf(socket);
+				if (index > -1) {
+					// Remove the socket from the array
+					self._sockets.splice(index, 1);
+				}
+
+				delete self._socketsById[socket.id];
+			});
 
 			// Tell the client their new ID
 			socket.send({
@@ -558,14 +590,36 @@ NetIo.Server = NetIo.EventingClass.extend({
 	},
 
 	/**
-	 * Determines if the origin of a request should be allowed or denied.
-	 * @param origin
-	 * @return {Boolean}
-	 * @private
+	 * Sends a message. If the client id is not specified
+	 * the message will be sent to all connected clients.
+	 *
+	 * @param {Object} data The JSON data to send.
+	 * @param {*=} clientId The id of the client to send to, or an array of id's to send to.
 	 */
-	_originIsAllowed: function (origin) {
-		// put logic here to detect whether the specified origin is allowed.
-		return true;
+	send: function (data, clientId) {
+		var recipientArray;
+
+		if (clientId !== undefined) {
+			if (typeof(clientId) === 'string') {
+				// There is only one recipient
+				recipientArray = [clientId];
+			} else {
+				// There is an array of recipients
+				recipientArray = clientId;
+			}
+		} else {
+			recipientArray = this._sockets;
+		}
+
+		var arr = recipientArray,
+			arrCount = arr.length,
+			// Pre-encode the data and then use _send to send raw
+			// instead of encoding for every socket
+			encodedData = this._encode(data);
+
+		while (arrCount--) {
+			arr[arrCount]._send(encodedData);
+		}
 	},
 
 	/**
@@ -576,6 +630,38 @@ NetIo.Server = NetIo.EventingClass.extend({
 		this._idCounter++;
 		return (this._idCounter + (Math.random() * Math.pow(10, 17) + Math.random() * Math.pow(10, 17) + Math.random() * Math.pow(10, 17) + Math.random() * Math.pow(10, 17))).toString(16);
 	},
+
+	/**
+	 * Determines if the origin of a request should be allowed or denied.
+	 * @param origin
+	 * @return {Boolean}
+	 * @private
+	 */
+	_originIsAllowed: function (origin) {
+		// TODO: Allow origins to be specified on startup and checked against here!
+		// put logic here to detect whether the specified origin is allowed.
+		return true;
+	},
+
+	/**
+	 * Encodes the passed JSON data into a data packet.
+	 * @param data
+	 * @return {*}
+	 * @private
+	 */
+	_encode: function (data) {
+		return JSON.stringify(data);
+	},
+
+	/**
+	 * Decodes a data packet back into JSON data.
+	 * @param data
+	 * @return {*}
+	 * @private
+	 */
+	_decode: function (data) {
+		return JSON.parse(data);
+	}
 });
 
 if (typeof(module) !== 'undefined' && typeof(module.exports) !== 'undefined') { module.exports = NetIo; }
