@@ -1,8 +1,27 @@
 // Our namespace
 var NetIo = {};
 
-// Inspired by base2 and Prototype
-// Modified for the Isogenic Game Engine
+/**
+ * Define the debug options object.
+ * @type {Object}
+ * @private
+ */
+NetIo._debug = {
+	node: typeof(module) !== 'undefined' && typeof(module.exports) !== 'undefined',
+	level: ['log', 'warning', 'error'],
+	stacks: false,
+	throwErrors: true,
+	trace: {
+		setup: false,
+		enabled: false,
+		match: ''
+	}
+};
+
+/**
+ * Define the class system.
+ * @type {*}
+ */
 NetIo.Class = (function () {
 	var initializing = false,
 		fnTest = /xyz/.test(function () {xyz;}) ? /\b_super\b/ : /.*/,
@@ -17,17 +36,17 @@ NetIo.Class = (function () {
 			var indent = '',
 				i,
 				stack;
-			if (!igeDebug.trace.indentLevel) { igeDebug.trace.indentLevel = 0; }
+			if (!NetIo._debug.trace.indentLevel) { NetIo._debug.trace.indentLevel = 0; }
 
-			for (i = 0; i < igeDebug.trace.indentLevel; i++) {
+			for (i = 0; i < NetIo._debug.trace.indentLevel; i++) {
 				indent += '  ';
 			}
 
 			type = type || 'log';
 
 			if (type === 'error') {
-				if (igeDebug.stacks) {
-					if (igeDebug.node) {
+				if (NetIo._debug.stacks) {
+					if (NetIo._debug.node) {
 						stack = new Error().stack;
 						//console.log(color.magenta('Stack:'), color.red(stack));
 						console.log('Stack:', stack);
@@ -38,13 +57,13 @@ NetIo.Class = (function () {
 					}
 				}
 
-				if (igeDebug.throwErrors) {
-					throw(indent + 'IGE *' + type + '* [' + (this._classId || this.prototype._classId) + '] : ' + text);
+				if (NetIo._debug.throwErrors) {
+					throw(indent + 'Net.io *' + type + '* [' + (this._classId || this.prototype._classId) + '] : ' + text);
 				} else {
-					console.log(indent + 'IGE *' + type + '* [' + (this._classId || this.prototype._classId) + '] : ' + text);
+					console.log(indent + 'Net.io *' + type + '* [' + (this._classId || this.prototype._classId) + '] : ' + text);
 				}
 			} else {
-				console.log(indent + 'IGE *' + type + '* [' + (this._classId || this.prototype._classId) + '] : ' + text);
+				console.log(indent + 'Net.io *' + type + '* [' + (this._classId || this.prototype._classId) + '] : ' + text);
 			}
 
 			return this;
@@ -426,10 +445,12 @@ NetIo.EventingClass = NetIo.Class.extend({
 });
 
 NetIo.Socket = NetIo.EventingClass.extend({
+	classId: 'Socket',
+
 	init: function (connection) {
 		var self = this;
-		this._socket = connection;
 
+		this._socket = connection;
 		this._socket.on('message', function(message) {
 			if (message.type === 'utf8') {
 				self.emit('message', self._decode(message.utf8Data));
@@ -441,12 +462,25 @@ NetIo.Socket = NetIo.EventingClass.extend({
 		});
 
 		this._socket.on('close', function(reasonCode, description) {
-			self.emit('disconnect', {socket: self._socket, reason: description, code: reasonCode});
+			self.emit('disconnect', {
+				socket: self._socket,
+				reason: description,
+				code: reasonCode
+			});
 		});
 	},
 
 	send: function (data) {
 		this._socket.sendUTF(this._encode(data));
+	},
+
+	close: function (reason) {
+		this.send({
+			_netioCmd: 'close',
+			data: reason
+		});
+
+		this._socket.close(reason);
 	},
 
 	_encode: function (data) {
@@ -459,7 +493,11 @@ NetIo.Socket = NetIo.EventingClass.extend({
 });
 
 NetIo.Server = NetIo.EventingClass.extend({
+	classId: 'Server',
+
 	init: function (port, callback) {
+		this._idCounter = 0;
+
 		this._port = port;
 		this._websocket = require('websocket');
 		this._http = require('http');
@@ -497,9 +535,18 @@ NetIo.Server = NetIo.EventingClass.extend({
 			self.log('Client connecting...');
 
 			var connection = request.accept('netio1', request.origin),
-				socket = new NetIo.socket(connection);
+				socket = new NetIo.Socket(connection);
 
-			this.emit('connection', [socket]);
+			// Give the socket a unique ID
+			socket.id = self.newIdHex();
+
+			// Tell the client their new ID
+			socket.send({
+				_netioCmd: 'id',
+				data: socket.id
+			});
+
+			self.emit('connection', [socket]);
 		});
 
 		this._httpServer.listen(this._port, function() {
@@ -519,7 +566,16 @@ NetIo.Server = NetIo.EventingClass.extend({
 	_originIsAllowed: function (origin) {
 		// put logic here to detect whether the specified origin is allowed.
 		return true;
-	}
+	},
+
+	/**
+	 * Generates a new 16-character hexadecimal unique ID
+	 * @return {String}
+	 */
+	newIdHex: function () {
+		this._idCounter++;
+		return (this._idCounter + (Math.random() * Math.pow(10, 17) + Math.random() * Math.pow(10, 17) + Math.random() * Math.pow(10, 17) + Math.random() * Math.pow(10, 17))).toString(16);
+	},
 });
 
 if (typeof(module) !== 'undefined' && typeof(module.exports) !== 'undefined') { module.exports = NetIo; }
