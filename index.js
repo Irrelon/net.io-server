@@ -599,25 +599,38 @@ NetIo.Server = NetIo.EventingClass.extend({
 	 * @param {*=} clientId The id of the client to send to, or an array of id's to send to.
 	 */
 	send: function (data, clientId) {
-		var recipientArray;
+		var recipientArray,
+			arr, arrCount,
+			encodedData, item;
 
 		if (clientId !== undefined) {
 			if (typeof(clientId) === 'string') {
 				// There is only one recipient
-				recipientArray = [clientId];
+				recipientArray = [this._socketsById[clientId]];
 			} else {
 				// There is an array of recipients
-				recipientArray = clientId;
+				recipientArray = [];
+				arr = clientId;
+				arrCount = arr.length;
+
+				while (arrCount--) {
+					item = this._socketsById[arr[arrCount]];
+
+					if (item !== undefined) {
+						recipientArray.push();
+					}
+				}
 			}
 		} else {
 			recipientArray = this._sockets;
 		}
 
-		var arr = recipientArray,
-			arrCount = arr.length,
-			// Pre-encode the data and then use _send to send raw
-			// instead of encoding for every socket
-			encodedData = this._encode(data);
+		arr = recipientArray;
+		arrCount = arr.length;
+
+		// Pre-encode the data and then use _send to send raw
+		// instead of encoding for every socket
+		encodedData = this._encode(data);
 
 		while (arrCount--) {
 			arr[arrCount]._send(encodedData);
