@@ -1,5 +1,5 @@
 {
-	"name":"net.io",
+	"name":"net.io-server",
 	"description":"High-performance realtime networking on browsers and Node.js.",
 	"keywords":["websocket", "socket", "socket.io", "netio", "comet", "realtime", "push", "client", "server"],
 	"author":"Rob Evans <rob@irrelon.com>",
