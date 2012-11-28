@@ -6,7 +6,7 @@
 	"version":"1.0.0",
 	"repository": {
 		"type":"git",
-		"url":""
+		"url":"https://github.com/coolbloke1324/net.io-server.git"
 	},
 	"engines": {
 		"node": ">=0.6.13"
