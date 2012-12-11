@@ -22,7 +22,7 @@ NetIo._debug = {
  * Define the class system.
  * @type {*}
  */
-NetIo.Class = (function () {
+NetIo.Class = typeof(IgeClass) !== 'undefined' ? IgeClass : (function () {
 	var initializing = false,
 		fnTest = /xyz/.test(function () {xyz;}) ? /\b_super\b/ : /.*/,
 
@@ -254,7 +254,7 @@ NetIo.Class = (function () {
 	return Class;
 }());
 
-NetIo.EventingClass = NetIo.Class.extend({
+NetIo.EventingClass = typeof(IgeEventingClass) !== 'undefined' ? IgeEventingClass : NetIo.Class.extend({
 	/**
 	 * Add an event listener method for an event.
 	 * @param {String || Array} eventName The name of the event to listen for (string), or an array of events to listen for.
@@ -502,7 +502,7 @@ NetIo.Socket = NetIo.EventingClass.extend({
 });
 
 NetIo.Server = NetIo.EventingClass.extend({
-	classId: 'Server',
+	classId: 'NetIo.Server',
 
 	init: function (port, callback) {
 		this._idCounter = 0;
@@ -583,7 +583,19 @@ NetIo.Server = NetIo.EventingClass.extend({
 			self.emit('connection', [socket]);
 		});
 
-		this._httpServer.listen(this._port, function() {
+		this._httpServer.on('error', function (err) {
+			switch (err.code) {
+				// TODO: Add all the error codes and human readable error here!
+				case 'EADDRINUSE':
+					self.log('Cannot start server on port ' + self._port + ' because the port is already in use by another application!', 'error');
+					break;
+				default:
+					self.log('Cannot start server, error code: ' + err.code);
+					break;
+			}
+		});
+
+		this._httpServer.listen(this._port, function(err) {
 			self.log('Server is listening on port ' + self._port);
 			if (typeof(callback) === 'function') {
 				callback();
@@ -617,7 +629,7 @@ NetIo.Server = NetIo.EventingClass.extend({
 					item = this._socketsById[arr[arrCount]];
 
 					if (item !== undefined) {
-						recipientArray.push();
+						recipientArray.push(item);
 					}
 				}
 			}
@@ -633,7 +645,9 @@ NetIo.Server = NetIo.EventingClass.extend({
 		encodedData = this._encode(data);
 
 		while (arrCount--) {
-			arr[arrCount]._send(encodedData);
+			if (arr[arrCount]) {
+				arr[arrCount]._send(encodedData);
+			}
 		}
 	},
 
@@ -678,5 +692,7 @@ NetIo.Server = NetIo.EventingClass.extend({
 		return JSON.parse(data);
 	}
 });
+
+NetIo.Server.version = '1.0.0';
 
 if (typeof(module) !== 'undefined' && typeof(module.exports) !== 'undefined') { module.exports = NetIo; }
