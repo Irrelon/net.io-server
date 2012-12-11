@@ -617,8 +617,13 @@ NetIo.Server = NetIo.EventingClass.extend({
 
 		if (clientId !== undefined) {
 			if (typeof(clientId) === 'string') {
+				if (this._socketsById[clientId]) {
 				// There is only one recipient
 				recipientArray = [this._socketsById[clientId]];
+			} else {
+					this.log('Warning, client with ID ' + clientId + ' not found in socket list!');
+					recipientArray = [];
+				}
 			} else {
 				// There is an array of recipients
 				recipientArray = [];
@@ -634,7 +639,7 @@ NetIo.Server = NetIo.EventingClass.extend({
 				}
 			}
 		} else {
-			recipientArray = this._sockets;
+			recipientArray = this._sockets.clone();
 		}
 
 		arr = recipientArray;
