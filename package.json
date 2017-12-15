@@ -1,12 +1,12 @@
 {
 	"name":"net.io-server",
-	"description":"High-performance realtime networking on browsers and Node.js.",
+	"description":"High-performance realtime networking on browsers and Node.js. Part of Isogenic Game Engine. http://www.isogenicengine.com/",
 	"keywords":["websocket", "socket", "socket.io", "netio", "comet", "realtime", "push", "client", "server"],
 	"author":"Rob Evans <rob@irrelon.com>",
-	"version":"1.0.1",
+	"version":"1.0.2",
 	"repository": {
 		"type":"git",
-		"url":"https://github.com/coolbloke1324/net.io-server.git"
+		"url":"https://github.com/irrelon/net.io-server.git"
 	},
 	"engines": {
 		"node": ">=0.6.13"
